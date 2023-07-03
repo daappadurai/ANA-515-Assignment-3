@@ -1,0 +1,147 @@
+---
+title: "ANA 515 Assigment 3"
+author: "Daniel Appadurai"
+date: "2023-07-01"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r import dependencies, echo=TRUE}
+library(tidyverse)
+library(dplyr)
+library(knitr)
+library(rmarkdown)
+library(officer)
+```
+
+
+```{r import csv, echo=TRUE, comment=NA}
+# 1. Reading the csv file and checking the columns
+data<-read.csv("StormEvents_details-ftp_v1.0_d2013_c20230118.csv")
+colnames(data)
+
+```
+
+```{r subsetting columns, echo=TRUE,comment=NA}
+# 2. Limiting the columns to the ones listed below
+selected_col<-c("BEGIN_YEARMONTH","EPISODE_ID","STATE","STATE_FIPS",
+"CZ_NAME","CZ_TYPE","CZ_FIPS","EVENT_TYPE")
+
+data2<-select(data, selected_col)
+colnames(data2)
+
+```
+
+```{r order by STATE name, echo=TRUE, comment=NA}
+#3. Arranging the data by State Name
+data3<-data2[order(data2$STATE),]
+sub_data3<-data3[1:3]
+kable(head(sub_data3))
+
+```
+
+```{r Title case for State entries, echo=TRUE, comment=NA}
+#4.Change state and county names to title case 
+library(stringr)
+data4 <- data3 %>% mutate(STATE = str_to_title(STATE)) %>% mutate(CZ_NAME=str_to_title(CZ_NAME))
+sub_data4<-data4[1:5]
+kable(head(sub_data4))
+```
+
+```{r inspecting CZ_TYPE, echo=TRUE}
+unique(data4$CZ_TYPE)
+```
+
+```{r select CZ_TYPE to C , echo=TRUE}
+#5.	Limit to the events listed by county FIPS (CZ_TYPE of “C”) 
+data5<-subset(data4, CZ_TYPE =="C")
+unique(data5$CZ_TYPE)
+
+```
+```{r}
+#5. removing the CZ_TYPE column
+data5<-subset(data5, select = -c(CZ_TYPE))
+colnames(data5)
+```
+
+```{r, echo=TRUE, comment=NA }
+#6.Pad the state FIPS with a “0” at the beginning (hint: there’s a function in stringr to do this) and then unite the two columns to make one FIPS column with the new state-county FIPS code
+data5$STATE_FIPS<-formatC(data5$STATE_FIPS, width = 2, format = "d", flag="0")
+
+
+head(data5$STATE_FIPS)
+
+```
+
+```{r}
+#6. Pad the county FIPS with a “0” 
+data5$CZ_FIPS<-formatC(data5$CZ_FIPS, width = 4, format = "d", flag="0")
+head(data5$CZ_FIPS)
+```
+
+```{r}
+#6. Unite the two columns to make one FIPS column with the new state-county FIPS code
+data5$STATE_COUNTY_FIPS<-paste0(data5$STATE_FIPS,data5$CZ_FIPS)
+head(data5$STATE_COUNTY_FIPS)
+```
+
+```{r, lower colname, echo=TRUE, comment=NA}
+#7.Change all the column names to lower case (you may want to try the rename_all function for this)
+colnames(data5) <- tolower(colnames(data5))
+
+colnames(data5)
+
+```
+
+```{r inspect event_type, echo=TRUE}
+unique(data5$event_type)
+```
+
+
+```{r data state, echo=TRUE, comment=NA}
+#8.There is data that comes with base R on U.S. states (data("state")). Use that to create a dataframe with these three columns: state name, area, and region
+data("state")
+df<-data.frame(state.name,state.area,state.region)
+head(df)
+```
+
+```{r storm events, echo=TRUE, comment=NA}
+#9. gathering storm events count for each state and creating a dataframe "events"
+storm_events<- table(data5$state)
+events<-data.frame(storm_events)
+head(events)
+```
+
+```{r colname change, echo=TRUE,comment=NA}
+#9. Renaming columns to create matching columns "state.name" to faciliate merging storm events dataframe with the state dataframe.
+colnames(events)<- c("state.name","Number of storm events")
+head(events)
+```
+
+
+```{r new df, echo=TRUE, comment=NA}
+#9. Merging storm events with state dataframe
+new_df<-merge(df, events, by="state.name")
+head(new_df)
+```
+
+```{r rename columns, echo=TRUE, comment=NA}
+#9. Embellishing the columns with title case
+colnames(new_df)<-c("State_Name","State_Area", "State_Region", "Number_of_Storm_Events" )
+head(new_df)
+```
+
+```{r plot, echo=TRUE,comment=NA}
+#10. Creating a plot with land area on the X axis and Number of Storm events on the Y axis. 
+library(ggplot2)
+plt<-ggplot(new_df, aes(x = State_Area, y = Number_of_Storm_Events , fill = State_Region)) +
+  geom_point(shape = 21, size = 4) +
+  labs(x = "Land Area", y = "# of storm events", fill = "Region") +
+  ggtitle("Number of Storm Events by Land Area in 2013")
+
+plt
+
+```
